@@ -1,7 +1,18 @@
+import sys
+import types
+
+# --- PATCH FOR PYTHON 3.13 ON STREAMLIT CLOUD ---
+try:
+    import imghdr
+except ImportError:
+    imghdr = types.ModuleType("imghdr")
+    imghdr.what = lambda file, h=None: None
+    sys.modules["imghdr"] = imghdr
+# ------------------------------------------------
+
 import streamlit as st
 import pandas as pd
 from streamlit_agraph import agraph, Node, Edge, Config
-import streamlit.components.v1 as components
 
 # --- 1. PASSWORD PROTECTION ---
 def check_password():
