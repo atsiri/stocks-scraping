@@ -12,3 +12,4 @@ pyvis
 plotly
 openpyxl
 streamlit-agraph
+altair<5
