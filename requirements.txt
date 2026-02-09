@@ -1,0 +1,14 @@
+pandas
+numpy
+requests
+selenium
+webdriver-manager
+beautifulsoup4
+lxml 
+openpyxl
+folium
+streamlit-folium
+pyvis
+plotly
+openpyxl
+streamlit-agraph
