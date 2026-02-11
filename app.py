@@ -230,10 +230,10 @@ if check_password():
             nodes.append(Node(
                 id=node_id, 
                 label=node_id, 
-                size=15 if is_company else 8,
+                size=7 if is_company else 3,
                 color=color,
                 shape="diamond" if is_company else "dot",
-                font={'size': 12, 'color': 'black'}
+                font={'size': 10, 'color': 'black'}
             ))
 
         edges = []
@@ -241,7 +241,7 @@ if check_password():
             edges.append(Edge(
                 source=row['Source'], 
                 target=row['Target'], 
-                width=max(1, row['Weight'] / 2),
+                width=max(1, row['Weight'] / 5),
                 color="#D3D3D3"
             ))
 
