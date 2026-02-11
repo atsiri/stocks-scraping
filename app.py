@@ -208,9 +208,9 @@ if check_password():
         f_graph_viz = f_graph
     
     # Safety limit
-    elif len(f_graph) > 500:
-        st.warning(f"⚠️ Data terlalu besar ({len(f_graph)} koneksi). Menampilkan 500 koneksi teratas saja agar browser tidak crash.")
-        f_graph_viz = f_graph.head(500)
+    elif len(f_graph) > 2000:
+        st.warning(f"⚠️ Data terlalu besar ({len(f_graph)} koneksi). Menampilkan 2000 koneksi teratas saja agar browser tidak crash.")
+        f_graph_viz = f_graph.head(2000)
     else:
         f_graph_viz = f_graph
 
