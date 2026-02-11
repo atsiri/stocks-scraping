@@ -117,8 +117,8 @@ if check_password():
     name_list = sorted(raw_df['Source'].unique())
     companies_set = set(raw_df['Target'].unique())
 
-    # Calculate Top 10 Emitens globally (using Ticker)
-    top_10_tickers = raw_df['Emiten'].value_counts().head(10).index.tolist()
+    # Calculate Top 100 Emitens globally (using Ticker)
+    top_100_tickers = raw_df['Emiten'].value_counts().head(100).index.tolist()
 
     # Emiten Colors
     emiten_list = sorted(raw_df['Emiten'].unique())
@@ -146,8 +146,8 @@ if check_password():
     # --- SIDEBAR CONTROLS ---
     st.sidebar.header("🔍 Kontrol & Filter")
     
-    # 1. TOGGLE SWITCH (Top 10 vs All)
-    is_top_10_mode = st.sidebar.toggle("🔥 Mode Top 10 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
+    # 1. TOGGLE SWITCH (Top 100 vs All)
+    is_top_10_mode = st.sidebar.toggle("🔥 Mode Top 100 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
 
     st.sidebar.divider()
 
