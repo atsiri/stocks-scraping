@@ -81,39 +81,51 @@ if check_password():
         </style>
         """, unsafe_allow_html=True)
 
-    # --- 2. DATA LOADING ---
+    # --- DATA LOADING ---
     @st.cache_data
     def load_data():
         # Loading the provided idx_network.csv
         # Expected columns: Source, Target, Weight, Emiten, Position
-        network_df = pd.read_csv('data/idx_network.csv')
+        df = pd.read_csv('data/idx_network.csv')
         
-        # Cleaning whitespace
-        string_cols = ['Source', 'Target', 'Emiten', 'Position']
+        # Ensure string columns are clean
+        string_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company']
         for col in string_cols:
-            if col in network_df.columns:
-                network_df[col] = network_df[col].astype(str).str.strip()
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip()
         
-        network_df = network_df.dropna(subset=['Source', 'Target'])
-        return network_df
+        # Compatibility: Create 'Company' column if it doesn't exist
+        if 'Company' not in df.columns:
+            df['Company'] = df['Target']
+            
+        df['Emiten_Label'] = df['Emiten'] + " - " + df['Company']
 
-    try:
-        raw_df = load_data()
-    except FileNotFoundError:
-        st.error("❌ File 'idx_network.csv' not found. Please upload it to the directory.")
-        st.stop()
+        df = df.dropna(subset=['Source', 'Target'])
+        return df
 
-    # --- 3. PREPARE FILTER LISTS ---
-    # Adapting logic: "Bank" -> "Emiten" (Ticker), "Target" -> Company Name
-    emiten_list = sorted(raw_df['Emiten'].unique())
-    company_list = sorted(raw_df['Target'].unique()) # Companies acts like "Banks" in graph shape
+    raw_df = load_data()
+
+    # --- PREPARE META DATA ---
+    # Create a sorted list of unique "Ticker - Company" labels
+    # We drop duplicates to get a clean list of unique companies
+    unique_emitens_df = raw_df[['Emiten', 'Company', 'Emiten_Label']].drop_duplicates().sort_values('Emiten')
+    emiten_label_list = unique_emitens_df['Emiten_Label'].tolist()
+    
+    # Map back from Label to Ticker (for filtering logic)
+    label_to_ticker = pd.Series(unique_emitens_df.Emiten.values, index=unique_emitens_df.Emiten_Label).to_dict()
+
     name_list = sorted(raw_df['Source'].unique())
+    companies_set = set(raw_df['Target'].unique())
 
-    # Color map for Emitens (Cycling through a palette)
+    # Calculate Top 10 Emitens globally (using Ticker)
+    top_10_tickers = raw_df['Emiten'].value_counts().head(10).index.tolist()
+
+    # Emiten Colors
+    emiten_list = sorted(raw_df['Emiten'].unique())
     palette = ["#FF4B4B", "#1E88E5", "#4CAF50", "#FF9800", "#9C27B0", "#00BCD4", "#795548", "#607D8B", "#E91E63", "#3F51B5"]
     emiten_color_map = {emiten: palette[i % len(palette)] for i, emiten in enumerate(emiten_list)}
 
-    # Injecting CSS for multiselect tags to match Emiten colors
+    # Inject CSS for tags (using Ticker)
     filter_css = ""
     for emiten, color in emiten_color_map.items():
         filter_css += f"""
@@ -124,33 +136,53 @@ if check_password():
         """
     st.markdown(f"<style>{filter_css}</style>", unsafe_allow_html=True)
 
-    # Node color registry: Nodes inherit color from their Emiten
+    # Node color registry
     node_color_registry = {}
     for _, row in raw_df.iterrows():
         color = emiten_color_map.get(row['Emiten'], "#D3D3D3")
-        node_color_registry[row['Source']] = color # Person gets Emiten color
-        node_color_registry[row['Target']] = color # Company gets Emiten color
+        node_color_registry[row['Source']] = color
+        node_color_registry[row['Target']] = color
 
-    # --- 4. SIDEBAR (FILTERS) ---
-    st.sidebar.header("🔍 Filter & Pencarian")
+    # --- SIDEBAR CONTROLS ---
+    st.sidebar.header("🔍 Kontrol & Filter")
+    
+    # 1. TOGGLE SWITCH (Top 10 vs All)
+    is_top_10_mode = st.sidebar.toggle("🔥 Mode Top 10 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
+
+    st.sidebar.divider()
 
     if st.sidebar.button("🔄 Reset Dashboard"):
-        for key in ["search_query", "selected_emitens", "selected_names"]:
-            if key in st.session_state:
-                del st.session_state[key]
         st.rerun()
 
+    # 2. FILTERS
     search_query = st.sidebar.text_input("Cari Nama / Jabatan / Emiten:", value="").upper().strip()
     
-    # Adapted Filters
-    selected_emitens = st.sidebar.multiselect("Pilih Emiten (Ticker):", options=emiten_list, default=emiten_list[:5]) # Default to first 5 to avoid clutter
-    selected_names = st.sidebar.multiselect("Pilih Nama (Personil):", options=name_list)
+    # UNIFIED FILTER: Emiten & Company combined
+    selected_labels = st.sidebar.multiselect(
+        "Pilih Emiten & Perusahaan:", 
+        options=emiten_label_list, 
+        default=[]
+    )
     
-    # Note: Broker filter removed as no broker data was provided in idx_network.csv
+    selected_names = st.sidebar.multiselect("Pilih Nama (Personil):", options=name_list)
 
-    # --- 5. FILTERING LOGIC ---
-    f_graph = raw_df[raw_df['Emiten'].isin(selected_emitens)].copy()
+    # --- FILTERING LOGIC ---
+    
+    # 1. Convert selected labels back to Tickers
+    selected_emitens_tickers = [label_to_ticker[label] for label in selected_labels]
 
+    # 2. Establish Base Scope
+    if is_top_10_mode:
+        f_graph = raw_df[raw_df['Emiten'].isin(top_10_tickers)].copy()
+        scope_label = "Top 10 Emiten"
+    else:
+        f_graph = raw_df.copy()
+        scope_label = "All Networks"
+
+    # 3. Apply User Filters
+    if selected_emitens_tickers:
+        f_graph = f_graph[f_graph['Emiten'].isin(selected_emitens_tickers)]
+        
     if selected_names:
         f_graph = f_graph[f_graph['Source'].isin(selected_names)]
 
@@ -158,107 +190,91 @@ if check_password():
         mask = (f_graph['Source'].str.upper().str.contains(search_query) |
                 f_graph['Target'].str.upper().str.contains(search_query) |
                 f_graph['Position'].str.upper().str.contains(search_query) | 
-                f_graph['Emiten'].str.upper().str.contains(search_query))
+                f_graph['Emiten'].str.upper().str.contains(search_query) |
+                f_graph['Company'].str.upper().str.contains(search_query))
         f_graph = f_graph[mask]
 
-    # --- 6. NETWORK PREPARATION ---
-    # Limiting nodes for performance if too many are selected
-    if len(f_graph) > 500:
-        st.sidebar.warning(f"⚠️ Data too large ({len(f_graph)} connections). Showing top 500.")
-        f_graph = f_graph.head(500)
-
-    all_nodes = pd.concat([f_graph['Source'], f_graph['Target']]).unique()
-    
-    # Identify which nodes are Companies (Targets) vs People (Source)
-    # In this dataset, Target columns are the Companies.
-    companies_set = set(raw_df['Target'].unique())
-
-    nodes = []
-    for node_id in all_nodes:
-        # Shape Logic: Company (Target) = Diamond, Person (Source) = Dot
-        is_company = node_id in companies_set
-        
-        # Search Highlighting
-        is_searched = search_query and search_query in str(node_id).upper()
-        
-        # Color Logic
-        color = node_color_registry.get(node_id, "#D3D3D3")
-        if is_searched:
-            color = "#FF0000" # Highlight searched node
-            
-        nodes.append(Node(
-            id=node_id, 
-            label=node_id, 
-            size=15 if is_company else 8,
-            color=color,
-            shape="diamond" if is_company else "dot",
-            font={'size': 12, 'color': 'black'}
-        ))
-
-    edges = []
-    for _, row in f_graph.iterrows():
-        edges.append(Edge(
-            source=row['Source'], 
-            target=row['Target'], 
-            # label=row['Position'], # Optional: Un-comment to show position on line
-            width=max(1, row['Weight'] / 2),
-            color="#D3D3D3"
-        ))
-
-    # --- 7. VISUALIZATION LAYOUT ---
+    # --- LAYOUT ---
     st.title("🛡️ Analisis Jejaring Emiten (IDX)")
-    st.subheader("🕸️ Visualisasi Jaringan")
+    
+    # --- VISUALIZATION SECTION ---
+    clicked_node = None
+    
+    st.subheader(f"🕸️ Visualisasi Jaringan ({scope_label})")
+    
+    # Check for empty data
+    if len(f_graph) == 0:
+        st.warning(f"⚠️ Tidak ada data yang ditemukan dalam mode '{scope_label}' dengan filter ini.")
+        f_graph_viz = f_graph
+    
+    # Safety limit
+    elif len(f_graph) > 500:
+        st.warning(f"⚠️ Data terlalu besar ({len(f_graph)} koneksi). Menampilkan 500 koneksi teratas saja agar browser tidak crash.")
+        f_graph_viz = f_graph.head(500)
+    else:
+        f_graph_viz = f_graph
 
-    config = Config(
-        width="100%", 
-        height=700, 
-        directed=True,
-        nodeHighlightBehavior=True, 
-        collapsible=False,
-        highlightColor="#F7A7A6",
-        canvasBackgroundColor="white",
-        link={'labelProperty': 'label', 'renderConfiguration': (True, 'blue')},
-        physics={
-            'enabled': True,
-            'solver': 'forceAtlas2Based', # Often better for medium networks
-            'forceAtlas2Based': {'gravitationalConstant': -50, 'springLength': 100}
-        }
-    )
+    if len(f_graph_viz) > 0:
+        # Nodes & Edges
+        all_nodes = pd.concat([f_graph_viz['Source'], f_graph_viz['Target']]).unique()
+        
+        nodes = []
+        for node_id in all_nodes:
+            is_company = node_id in companies_set
+            is_searched = search_query and search_query in str(node_id).upper()
+            
+            color = node_color_registry.get(node_id, "#D3D3D3")
+            if is_searched:
+                color = "#FF0000"
+                
+            nodes.append(Node(
+                id=node_id, 
+                label=node_id, 
+                size=15 if is_company else 8,
+                color=color,
+                shape="diamond" if is_company else "dot",
+                font={'size': 12, 'color': 'black'}
+            ))
 
-    clicked_node = agraph(nodes=nodes, edges=edges, config=config)
+        edges = []
+        for _, row in f_graph_viz.iterrows():
+            edges.append(Edge(
+                source=row['Source'], 
+                target=row['Target'], 
+                width=max(1, row['Weight'] / 2),
+                color="#D3D3D3"
+            ))
 
-    # --- 8. TABLES (Bottom Section) ---
+        config = Config(
+            width="100%", 
+            height=700, 
+            directed=True,
+            nodeHighlightBehavior=True, 
+            highlightColor="#F7A7A6",
+            collapsible=False,
+            backgroundColor="white",
+            link={'labelProperty': 'label', 'renderConfiguration': (True, 'blue')},
+        )
+
+        clicked_node = agraph(nodes=nodes, edges=edges, config=config)
+
+    # --- TABLES SECTION ---
     st.divider()
 
-    # Logic to handle clicks
+    display_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company', 'Weight']
+    display_cols = [c for c in display_cols if c in raw_df.columns]
+
     if clicked_node:
         active_node = clicked_node
-        
-        # Check if clicked node is a Company (Target)
         if active_node in companies_set:
             st.subheader(f"🏢 Detail Perusahaan: {active_node}")
-            # Show all people connected to this company
             display_df = raw_df[raw_df['Target'] == active_node]
-            
-            st.dataframe(
-                display_df[['Source', 'Target', 'Emiten', 'Position', 'Weight']], 
-                use_container_width=True, 
-                hide_index=True
-            )
-            
-        # Otherwise, it's a Person (Source)
+            st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
         else:
             st.subheader(f"👤 Profil Personil: {active_node}")
-            # Show all companies this person is connected to
             display_df = raw_df[raw_df['Source'] == active_node]
-            
-            st.dataframe(
-                display_df[['Source', 'Target', 'Emiten', 'Position', 'Weight']], 
-                use_container_width=True, 
-                hide_index=True
-            )
+            st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
     else:
-        st.info("💡 Klik node Diamond (Perusahaan) atau Dot (Personil) untuk melihat detail koneksi.")
-        # Default view: Show filtered table
-        with st.expander("Lihat Data Tabel Lengkap (Filtered)"):
-            st.dataframe(f_graph, use_container_width=True)
+        # Main Table
+        with st.expander(f"Lihat Data Tabel ({scope_label})", expanded=True):
+            st.dataframe(f_graph[display_cols], use_container_width=True)
