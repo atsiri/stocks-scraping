@@ -147,7 +147,7 @@ if check_password():
     st.sidebar.header("🔍 Kontrol & Filter")
     
     # 1. TOGGLE SWITCH (Top 100 vs All)
-    is_top_10_mode = st.sidebar.toggle("🔥 Mode Top 100 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
+    is_top_100_mode = st.sidebar.toggle("🔥 Mode Top 100 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
 
     st.sidebar.divider()
 
@@ -172,9 +172,9 @@ if check_password():
     selected_emitens_tickers = [label_to_ticker[label] for label in selected_labels]
 
     # 2. Establish Base Scope
-    if is_top_10_mode:
-        f_graph = raw_df[raw_df['Emiten'].isin(top_10_tickers)].copy()
-        scope_label = "Top 10 Emiten"
+    if is_top_100_mode:
+        f_graph = raw_df[raw_df['Emiten'].isin(top_100_tickers)].copy()
+        scope_label = "Top 100 Emiten"
     else:
         f_graph = raw_df.copy()
         scope_label = "All Networks"
