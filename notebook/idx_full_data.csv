@@ -1,0 +1,39 @@
+Emiten_Code,URL,Status,Name,Code,NPWP,Sector,Subsector,Industry,Sub_industry,Shareholders,Director
+AADI,https://www.idx.co.id/en/listed-companies/company-profiles/AADI,"Error: Message: 
+Stacktrace:
+0   chromedriver                        0x0000000104daf928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000104da7c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010488a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x00000001048d3d7c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 375360
+4   chromedriver                        0x0000000104912fe8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634028
+5   chromedriver                        0x00000001048c807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+6   chromedriver                        0x0000000104d6e884 cxxbridge1$str$ptr + 2831984
+7   chromedriver                        0x0000000104d71fcc cxxbridge1$str$ptr + 2846136
+8   chromedriver                        0x0000000104d53578 cxxbridge1$str$ptr + 2720612
+9   chromedriver                        0x0000000104d72850 cxxbridge1$str$ptr + 2848316
+10  chromedriver                        0x0000000104d43640 cxxbridge1$str$ptr + 2655276
+11  chromedriver                        0x0000000104d96194 cxxbridge1$str$ptr + 2994048
+12  chromedriver                        0x0000000104d96310 cxxbridge1$str$ptr + 2994428
+13  chromedriver                        0x0000000104da785c cxxbridge1$str$ptr + 3065416
+14  libsystem_pthread.dylib             0x000000018a579c08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x000000018a574ba8 thread_start + 8
+",N/A,AADI,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+BMRI,https://www.idx.co.id/en/listed-companies/company-profiles/BMRI,"Error: Message: 
+Stacktrace:
+0   chromedriver                        0x0000000104daf928 cxxbridge1$str$ptr + 3098388
+1   chromedriver                        0x0000000104da7c04 cxxbridge1$str$ptr + 3066352
+2   chromedriver                        0x000000010488a83c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 75008
+3   chromedriver                        0x00000001048d3d7c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 375360
+4   chromedriver                        0x0000000104912fe8 _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 634028
+5   chromedriver                        0x00000001048c807c _RNvCs5DBLTqoOdVp_7___rustc35___rust_no_alloc_shim_is_unstable_v2 + 326976
+6   chromedriver                        0x0000000104d6e884 cxxbridge1$str$ptr + 2831984
+7   chromedriver                        0x0000000104d71fcc cxxbridge1$str$ptr + 2846136
+8   chromedriver                        0x0000000104d53578 cxxbridge1$str$ptr + 2720612
+9   chromedriver                        0x0000000104d72850 cxxbridge1$str$ptr + 2848316
+10  chromedriver                        0x0000000104d43640 cxxbridge1$str$ptr + 2655276
+11  chromedriver                        0x0000000104d96194 cxxbridge1$str$ptr + 2994048
+12  chromedriver                        0x0000000104d96310 cxxbridge1$str$ptr + 2994428
+13  chromedriver                        0x0000000104da785c cxxbridge1$str$ptr + 3065416
+14  libsystem_pthread.dylib             0x000000018a579c08 _pthread_start + 136
+15  libsystem_pthread.dylib             0x000000018a574ba8 thread_start + 8
+",N/A,BMRI,N/A,N/A,N/A,N/A,N/A,N/A,N/A

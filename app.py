@@ -88,22 +88,38 @@ if check_password():
         # Expected columns: Source, Target, Weight, Emiten, Position
         df = pd.read_csv('data/idx_network.csv')
         
-        # Ensure string columns are clean
+        # Load Subsidiary & Shares Data (New)
+        try:
+            df_subs = pd.read_csv('data/idx_subsidiary.csv')
+        except FileNotFoundError:
+            df_subs = pd.DataFrame(columns=['Emiten_Code', 'Name', 'Type', 'Values', 'Percentage']) # Empty fallback
+            
+        try:
+            df_shares = pd.read_csv('data/idx_shares.csv')
+        except FileNotFoundError:
+            df_shares = pd.DataFrame(columns=['Emiten_Code', 'Name', 'Type', 'Values', 'Percentage']) # Empty fallback
+
+        # Cleaning Network Data
         string_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company']
         for col in string_cols:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.strip()
         
-        # Compatibility: Create 'Company' column if it doesn't exist
         if 'Company' not in df.columns:
             df['Company'] = df['Target']
+
+        # Cleaning Detail Data (Ensure Name is string for matching)
+        if 'Name' in df_subs.columns:
+            df_subs['Name'] = df_subs['Name'].astype(str).str.strip()
+        if 'Name' in df_shares.columns:
+            df_shares['Name'] = df_shares['Name'].astype(str).str.strip()
             
         df['Emiten_Label'] = df['Emiten'] + " - " + df['Company']
 
         df = df.dropna(subset=['Source', 'Target'])
-        return df
+        return df, df_subs, df_shares
 
-    raw_df = load_data()
+    raw_df, raw_subs, raw_shares = load_data()
 
     # --- PREPARE META DATA ---
     # Create a sorted list of unique "Ticker - Company" labels
@@ -116,9 +132,16 @@ if check_password():
 
     name_list = sorted(raw_df['Source'].unique())
     companies_set = set(raw_df['Target'].unique())
+    
+    if 'Position' in raw_df.columns:
+        subsidiary_set = set(raw_df[raw_df['Position'].str.upper() == 'SUBSIDIARY']['Source'].unique())
+        shareholder_set = set(raw_df[raw_df['Position'].str.upper() == 'SHAREHOLDERS']['Source'].unique())
+    else:
+        subsidiary_set = set()
+        shareholder_set = set()
 
-    # Calculate Top 100 Emitens globally (using Ticker)
-    top_100_tickers = raw_df['Emiten'].value_counts().head(100).index.tolist()
+    # Calculate Top 25 Emitens globally (using Ticker)
+    top_25_tickers = raw_df['Emiten'].value_counts().head(25).index.tolist()
 
     # Emiten Colors
     emiten_list = sorted(raw_df['Emiten'].unique())
@@ -144,10 +167,10 @@ if check_password():
         node_color_registry[row['Target']] = color
 
     # --- SIDEBAR CONTROLS ---
-    st.sidebar.header("🔍 Kontrol & Filter")
+    st.sidebar.header("🔍 Filter")
     
-    # 1. TOGGLE SWITCH (Top 100 vs All)
-    is_top_100_mode = st.sidebar.toggle("🔥 Mode Top 100 Emiten", value=True, help="Aktif: Hanya menampilkan 10 Emiten terbesar. Non-aktif: Menampilkan semua data.")
+    # 1. TOGGLE SWITCH (Top X vs All)
+    is_top_25_mode = st.sidebar.toggle("🔥 Mode Top 25 Emiten", value=True, help="Aktif: Hanya menampilkan 25 Emiten terbesar. Non-aktif: Menampilkan semua data.")
 
     st.sidebar.divider()
 
@@ -172,9 +195,9 @@ if check_password():
     selected_emitens_tickers = [label_to_ticker[label] for label in selected_labels]
 
     # 2. Establish Base Scope
-    if is_top_100_mode:
-        f_graph = raw_df[raw_df['Emiten'].isin(top_100_tickers)].copy()
-        scope_label = "Top 100 Emiten"
+    if is_top_25_mode:
+        f_graph = raw_df[raw_df['Emiten'].isin(top_25_tickers)].copy()
+        scope_label = "Top 25 Emiten"
     else:
         f_graph = raw_df.copy()
         scope_label = "All Networks"
@@ -223,6 +246,20 @@ if check_password():
             is_company = node_id in companies_set
             is_searched = search_query and search_query in str(node_id).upper()
             
+            # <--- NEW LOGIC: Assign 'triangle' if in subsidiary_set
+            if node_id in subsidiary_set:
+                node_shape = "triangle"
+                node_size = 5
+            elif node_id in shareholder_set: # <--- NEW SHAPE for Shareholders
+                node_shape = "square"
+                node_size = 5
+            elif node_id in companies_set:
+                node_shape = "diamond"
+                node_size = 7
+            else:
+                node_shape = "dot"
+                node_size = 3
+                
             color = node_color_registry.get(node_id, "#D3D3D3")
             if is_searched:
                 color = "#FF0000"
@@ -232,7 +269,7 @@ if check_password():
                 label=node_id, 
                 size=7 if is_company else 3,
                 color=color,
-                shape="diamond" if is_company else "dot",
+                shape=node_shape, #"diamond" if is_company else "dot",
                 font={'size': 10, 'color': 'black'}
             ))
 
@@ -257,24 +294,116 @@ if check_password():
         )
 
         clicked_node = agraph(nodes=nodes, edges=edges, config=config)
-
-    # --- TABLES SECTION ---
+        
+    # --- TABLES (STACKED) ---
     st.divider()
+    
+    # Columns definition
+    net_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company', 'Weight']
+    net_cols = [c for c in net_cols if c in raw_df.columns]
+    detail_cols = ['Emiten_Code', 'Name', 'Type', 'Values', 'Percentage']
 
-    display_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company', 'Weight']
-    display_cols = [c for c in display_cols if c in raw_df.columns]
+    # Initialize Table DataFrames (Default: Filtered by Sidebar)
+    # 1. Network Table
+    df_net_display = f_graph[net_cols]
+    
+    # 2. Subsidiary & Shares Tables (Default: Filtered by active Emitens if any)
+    if selected_emitens_tickers:
+         df_subs_display = raw_subs[raw_subs['Emiten_Code'].isin(selected_emitens_tickers)]
+         df_shares_display = raw_shares[raw_shares['Emiten_Code'].isin(selected_emitens_tickers)]
+    elif is_top_25_mode:
+         df_subs_display = raw_subs[raw_subs['Emiten_Code'].isin(top_25_tickers)]
+         df_shares_display = raw_shares[raw_shares['Emiten_Code'].isin(top_25_tickers)]
+    else:
+         df_subs_display = raw_subs # Show all if no specific filter
+         df_shares_display = raw_shares
 
+    # --- LOGIC IF NODE CLICKED ---
+    header_title = f"Detail ({scope_label})"
+    
     if clicked_node:
         active_node = clicked_node
+        header_title = f"Detail: {active_node}"
+        
+        # A. Filter Network Table
+        df_net_display = raw_df[(raw_df['Source'] == active_node) | (raw_df['Target'] == active_node)]
+        
+        # B. Filter Subsidiary & Shares Tables
+        # Check if clicked node is a Company (Target) -> Find Ticker -> Filter by Ticker
+        # Check if clicked node is a Person/Entity (Source) -> Filter by Name
+        
+        associated_ticker = None
+        
         if active_node in companies_set:
-            st.subheader(f"🏢 Detail Perusahaan: {active_node}")
-            display_df = raw_df[raw_df['Target'] == active_node]
-            st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
+            # It's a Company Name, find its Ticker
+            subset = raw_df[raw_df['Target'] == active_node]
+            if not subset.empty:
+                associated_ticker = subset['Emiten'].iloc[0]
+        
+        if associated_ticker:
+            # Filter by Ticker
+            df_subs_display = raw_subs[raw_subs['Emiten_Code'] == associated_ticker]
+            df_shares_display = raw_shares[raw_shares['Emiten_Code'] == associated_ticker]
         else:
-            st.subheader(f"👤 Profil Personil: {active_node}")
-            display_df = raw_df[raw_df['Source'] == active_node]
-            st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
-    else:
-        # Main Table
-        with st.expander(f"Lihat Data Tabel ({scope_label})", expanded=True):
-            st.dataframe(f_graph[display_cols], use_container_width=True)
+            # Filter by Name
+            df_subs_display = raw_subs[raw_subs['Name'] == active_node]
+            df_shares_display = raw_shares[raw_shares['Name'] == active_node]
+
+    # --- RENDER TABLES ---
+    st.markdown(f"### {header_title}")
+    
+    # Table 1: Network Connections
+    with st.expander("1. Network Connections", expanded=True):
+        st.dataframe(df_net_display[net_cols], use_container_width=True, hide_index=True)
+
+    # Table 2: Subsidiaries
+    with st.expander("2. Subsidiary", expanded=True):
+        st.dataframe(df_subs_display[detail_cols] if not df_subs_display.empty else pd.DataFrame(columns=detail_cols), use_container_width=True, hide_index=True)
+
+    # Table 3: Shareholders
+    with st.expander("3. Shareholders", expanded=True):
+        st.dataframe(df_shares_display[detail_cols] if not df_shares_display.empty else pd.DataFrame(columns=detail_cols), use_container_width=True, hide_index=True)
+
+    # # --- TABLES (DETAIL VIEW) ---
+    # st.divider()
+    
+    # # Columns for main network table
+    # display_cols = ['Source', 'Target', 'Emiten', 'Position', 'Company']
+    # display_cols = [c for c in display_cols if c in raw_df.columns]
+    
+    # # Columns for detail tables (Subsidiary/Shareholders)
+    # detail_cols = ['Emiten_Code', 'Name', 'Type', 'Values', 'Percentage']
+
+    # if clicked_node:
+    #     active_node = clicked_node
+        
+    #     # --- NEW: Conditional Table Display based on Node Type ---
+    #     if active_node in subsidiary_set:
+    #         st.subheader(f"🏭 Detail Subsidiaries: {active_node}")
+    #         # Filter the Subsidiary CSV by Name (Source)
+    #         detail_df = raw_subs[raw_subs['Name'] == active_node]
+    #         st.dataframe(detail_df[detail_cols], use_container_width=True, hide_index=True)
+            
+    #     elif active_node in shareholder_set:
+    #         st.subheader(f"💰 Detail Pemegang Saham: {active_node}")
+    #         # Filter the Shares CSV by Name (Source)
+    #         detail_df = raw_shares[raw_shares['Name'] == active_node]
+    #         st.dataframe(detail_df[detail_cols], use_container_width=True, hide_index=True)
+            
+    #     elif active_node in companies_set:
+    #         st.subheader(f"🏢 Detail Perusahaan (Emiten): {active_node}")
+    #         # Show network connections
+    #         display_df = raw_df[(raw_df['Target'] == active_node) | (raw_df['Source'] == active_node)]
+    #         st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
+            
+    #     else:
+    #         st.subheader(f"👤 Profil Personil: {active_node}")
+    #         # Show network connections
+    #         display_df = raw_df[(raw_df['Source'] == active_node) | (raw_df['Target'] == active_node)]
+    #         st.dataframe(display_df[display_cols], use_container_width=True, hide_index=True)
+    #     # ---------------------------------------------------------
+            
+    # else:
+    #     # Default View: Show Main Network Table
+    #     with st.expander(f"Lihat Data Tabel ({scope_label})", expanded=True):
+    #         st.dataframe(f_graph[display_cols], use_container_width=True)
