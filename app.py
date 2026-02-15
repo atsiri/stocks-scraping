@@ -291,7 +291,38 @@ if check_password():
             collapsible=False,
             backgroundColor="white",
             link={'labelProperty': 'label', 'renderConfiguration': (True, 'blue')},
+            #<--- REDUCE OVERLAP --->
+            avoidOverlap=1
         )
+        
+        # # --- UPDATED CONFIG WITH PHYSICS OPTIMIZATIONS ---
+        # config = Config(
+        #     width="100%", 
+        #     height=700, 
+        #     directed=True, 
+        #     nodeHighlightBehavior=True, 
+        #     highlightColor="#F7A7A6",
+        #     collapsible=False,
+        #     backgroundColor="white",
+        #     link={'labelProperty': 'label', 'renderConfiguration': (True, 'blue')},
+        #     # <--- NEW PHYSICS SETTINGS TO REDUCE OVERLAP --->
+        #     physics={
+        #         "enabled": True,
+        #         "solver": "forceAtlas2Based",
+        #         "forceAtlas2Based": {
+        #             "gravitationalConstant": -100, # Increased repulsion (negative value)
+        #             "springLength": 100,           # Longer edges
+        #             "springConstant": 0.08,
+        #             "damping": 0.4,
+        #             "avoidOverlap": 1              # Try to avoid overlap (0 to 1)
+        #         },
+        #         "minVelocity": 0.75,
+        #         "stabilization": {
+        #             "enabled": True,
+        #             "iterations": 1000             # Stabilize before showing
+        #         }
+        #     }
+        # )
 
         clicked_node = agraph(nodes=nodes, edges=edges, config=config)
         
